@@ -353,7 +353,7 @@ let line_path = svg.append("g")
         let message = d[1][d[1].length-1].player_name + " (" + d[1][d[1].length-1].playoff_wins + ") "
         tooltip.html(message)
         .style('top',y( d[1][d[1].length-1].playoff_wins) + 67 + "px")
-        .style('left',x( d[1][d[1].length-1].year) - 100 + "px")
+        .style('left',x( d[1][d[1].length-1].year) + 1 + "px")
         .style("opacity", 1)
     })
 
