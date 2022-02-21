@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <!-- set styles on the top -->
+    <style>
+        .chart-container {
+            max-width: 1050px;
+            /* border: 2px solid red; */
+            margin: 0 auto;
+            /* auto centers the div */
+            font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+        }
+
+        svg {
+            /* border: 2px solid purple; */
+            overflow: visible;
+            height: 570px;
+        }
+
+        h1 {
+            /* border: 2px solid green; */
+        }
+
+        .xaxis{
+            font-size: 20;
+        }
+
+        .yaxis{
+            font-size: 20; 
+        }
+
+        div.tooltip {   
+            position: absolute;
+            font-size: 100 px;
+            font-family: Arial;
+            font-weight: normal;         
+        /*your other styles here*/;              
+        }
+
+        .source1 {
+            font-size: 8 ;
+            font-weight: normal;
+        }
+
+    </style>
+</head>
+
+<body>
+    <div class="chart-container">
+        <h1 class="headline">
+           Playoff Wins
+        </h1>
+
+        <svg width="1050px" height="900px">
+
+        </svg>
+
+        <p id="source1"> 
+            Includes quarterbacks with at least 500 passing attempts since 1950. Only includes stats since 1950. 
+            <br> <br> 
+            Source: Pro Football Reference
+        </p>
+
+        <style>
+            .source1 {
+                font-size: 8 ;
+                font-weight: normal;
+            }
+    
+        </style>
+    </div>
+</body>
+
+<script src="https://d3js.org/d3.v6.min.js"></script>
+<!-- we're using d3 version 6 (the latest version) for all out work -->
+<!---- <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-legend/2.25.6/d3-legend.min.js"></script> -->
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+
+<script>
+ element = document.getElementById("source1");
+        element.style.fontSize = 10;
+//------------------------1. PREPARATION------------------------//
+//-----------------------------SVG------------------------------//
+
+//Define width and height:
+let width = 800;
+let height = 500;
+
+//Define the SVG:
+let svg=d3.select("body").select("svg");
+
+//Define margins:
+let margins = {top: 30, right: 10, bottom: 10, left: 30};
+
+//-----------------------------DATA-----------------------------//
+//Original data:
+d3.csv("cumulative-stats.csv").then(function(data){
+    console.log(data)
+    data.forEach(function(row){
+        row.playoff_wins = +row.playoff_wins
+        row.year = +row.year
+    })
+
+//Create a collapse dataframe so that each QB can be a different path:
+let grouped_data = d3.group(data,function(d){
+    return d.player_name
+    })
+console.log(grouped_data)
+
+//----------------------------SCALES & AXES--------------------//
+//X-axis: rescaling
+let x = d3.scaleLinear()
+    .domain(d3.extent(data.map(function(d){
+        return d.year
+    })))
+    .range([margins.left, width-margins.right])
+
+//X-axis: settings
+let xAxisSettings = d3.axisBottom(x)
+    .ticks(8)
+    .tickSize(15)
+    .tickFormat(d3.format(".4"))
+
+//X-axis: show axis
+let xAxisTicks = svg.append("g")
+    .attr("class", "xaxis")
+    .call(xAxisSettings)
+    .attr("transform", `translate(0,${height - margins.bottom})`)
+    .attr("font-size", 13)
+
+//Y-axis: rescaling
+let y = d3.scaleLinear()
+    .domain(d3.extent(data.map(function(d){
+        return d.playoff_wins
+    })))
+    .range([height - margins.bottom, margins.top])
+
+//Y-axis: settings
+let yAxisSettings = d3.axisRight(y)
+    .tickValues([5, 10, 15, 20, 25, 30, 35])
+    .ticks(5)
+    .tickSize(880)
+    .tickSizeInner(width)
+    .tickPadding(10)
+
+//Y-axis: show
+let yAxisTicks = svg.append("g")
+    .attr("class", "yaxis")
+    .call(yAxisSettings)
+    .attr("font-size", 13)
+    .call(g => g.selectAll(".tick line") ///change the attributes of the y grid
+                .attr("class", "axis_y_tick")
+                .attr("stroke", "#CCCC")
+                .attr("opacity",0.4))
+    .call(g => g.select(".domain").remove())  //remove the y-axis line
+
+//----------------------------LINES-----------------------------//
+//Create a line function:
+let line = d3.line()
+    .x(function(d){
+        return x(d.year)  //x-axis values
+    })
+    .y(function(d){
+        return y(d.playoff_wins) //y-axis values
+    })
+
+//----------------------------TOOLTIP---------------------------//
+let tooltip = d3.select("body").append("div") 
+    .attr("class", "tooltip")               
+    .style("opacity", 0)
+    .style("position", "absolute")
+    .style("font-weight", "normal")
+    .attr("font-size", 50)
+
+//-------------------------2. DRAWING---------------------------//
+
+let active_po_wins = ["Josh Allen","Joe Burrow","Kirk Cousins","Joe Flacco","Nick Foles","Jimmy Garoppolo","Jared Goff",
+                      "Lamar Jackson","Case Keenum","Patrick Mahomes","Marcus Mariota","Baker Mayfield","Cam Newton","Dak Prescott",
+                      "Aaron Rodgers","Ben Roethlisberger","Matt Ryan","Matthew Stafford","Ryan Tannehill","Russell Wilson"]
+
+let legends = ["Bart Starr","Terry Bradshaw","Fran Tarkenton","Joe Montana","John Elway"]
+
+//----------------------------LABELS----------------------------//
+
+let labels = svg.append("g")
+    .selectAll(".text")
+    .data(grouped_data)
+    .join("text")
+    .attr("class", "text")
+    .attr("class", function (d){
+        return "label-" + d[0]
+    })
+    .attr("x", function(d){
+        if (d[0]=="Tom Brady"){
+            return x(d[1][d[1].length-1].year-5)
+        } else{
+        return x(d[1][d[1].length-1].year+0.5)
+        }
+    })
+    .attr("y", function(d){
+        if (d[0]=="Tom Brady"){
+            return y(d[1][d[1].length-1].playoff_wins + 1)
+        } else {
+        return y(d[1][d[1].length-1].playoff_wins)
+        }
+    })
+    .text(function(d){
+        if (legends.includes(d[0]) ||
+            d[0]=="Tom Brady"){
+            return d[1][d[1].length-1].last_name
+        } else {
+            return ""
+        }
+    })
+    .attr("font-size", function(d){
+        if (d[0]=="Tom Brady"){
+            return 25
+        } else {
+            return 15
+        }
+    })
+    .attr("font-weight",function(d){
+        if (d[0]=="Tom Brady"){
+            return "bold"
+        } else {
+            return "normal"
+        }
+    })
+    .attr("font-family", "Arial")
+
+//----------------------------ENDPOINTS----------------------------//
+let endpoints = svg.append("g")
+    .selectAll(".points")
+    .data(grouped_data)
+    .join("circle")
+    .attr("class", function (d){
+        return "endpoint-" + d[0]
+    })
+    .attr("cx", function(d){
+        return x(d[1][d[1].length-1].year)
+    })
+    .attr("cy", function(d){
+        return y(d[1][d[1].length-1].playoff_wins)
+    })
+    .attr("r", function(d){
+            if ( d[0]=="Tom Brady") {
+                return 6
+            } else {
+                return 2
+                }
+            })
+
+    .style("stoke", "#333333")
+    .style("stroke-width", .3)
+    .style("fill-opacity", function(d){
+        if (d[1][d[1].length-1].playoff_wins==0) {
+            return 0
+        } else {
+            return 1
+        }
+    })
+    .style("fill", function(d){
+            if ( d[0]=="Tom Brady" || 
+                active_po_wins.includes(d[0])) {
+                return "#6dc4f9"
+            } else {
+                if (legends.includes(d[0])){
+                    return "black"
+                } else {
+                    return "#CCCC"
+                }
+            }
+            })
+
+//----------------------------LINES----------------------------//
+let line_path = svg.append("g")
+    .selectAll(".line")
+    .data(grouped_data)
+    .join("path")
+    .attr("class", function(d){
+        return "line " + d[0]
+    })
+    .attr("d",function(d){
+        return line(d[1])
+    })
+    .attr("fill", "none")
+    .attr("stroke",function(d){
+        if ( d[0]=="Tom Brady" || 
+             active_po_wins.includes(d[0])) {
+            return "#6dc4f9"
+        } else {
+            if (legends.includes(d[0])){
+                return "black"
+            } else {
+                return "#CCCC"
+            }
+        }
+    })
+    .attr("stroke-width",function(d){
+        if ( d[0]=="Tom Brady"){
+            return 5
+        } else {
+            return 1
+            }
+        })
+
+    .on("mouseover", function(event, d){
+
+        labels
+           .attr("opacity",0.05)
+
+        line_path
+            .attr("fill", "none")
+            //.attr("stroke", "#CCCC")
+        
+        d3.select(this)
+            .attr("stroke-width",function(d){
+                if ( d[0]=="Tom Brady"){
+                    return 5
+                } else {
+                    if (active_po_wins.includes(d[0])) {
+                        return 3
+                    } else {
+                        return 1
+                    }
+                }   
+            })
+            .attr("stroke", function(d){
+                if ( d[0]=="Tom Brady" || 
+                    active_po_wins.includes(d[0])) {
+                    return "#6dc4f9"
+                } else {
+                    return "black"
+                    }
+            })
+            endpoints
+                .attr("fill", function(d){
+                if ( d[0]=="Tom Brady" || 
+                    active_po_wins.includes(d[0])) {
+                    return "#6dc4f9"
+                } else {
+                    if (legends.includes(d[0])){
+                        return "black"
+                    } else {
+                        return "#CCCC"
+                    }
+                }
+                })
+
+        let message = d[1][d[1].length-1].player_name + " (" + d[1][d[1].length-1].playoff_wins + ") "
+        tooltip.html(message)
+        .style('top',y( d[1][d[1].length-1].playoff_wins) + 67 + "px")
+        .style('left',x( d[1][d[1].length-1].year) + 333 + "px")
+        .style("opacity", 1)
+    })
+
+    .on("mouseout", function(d){
+        labels
+            .attr("opacity",1)
+
+        line_path
+            .attr("fill", "none")
+            .attr("stroke",function(d){
+            if ( d[0]=="Tom Brady" || 
+                active_po_wins.includes(d[0])) {
+                return "#6dc4f9"
+            } else {
+                if (legends.includes(d[0])){
+                    return "black"
+                } else {
+                    return "#CCCC"
+                }
+            }
+            })
+        d3.select(this)
+            .attr("stroke-width",function(d){
+            if ( d[0]=="Tom Brady"){
+                return 5
+            } else {
+                return 1
+                }
+            })
+
+        tooltip
+        .style("opacity", 0)
+    })
+
+    let line_h = d3.line()
+        .x(function(d){
+            return x(d.year)  //x-axis values
+        })
+        .y(function(d){
+            return y(0) //y-axis values
+        })
+
+    let line_path_h = svg.append("path") 
+        .attr("class","line")
+        .attr("d",line_h(data))
+        .attr("stroke", "black")
+        .attr("stroke-width",1.5)
+
+
+
+})
+
+
+
+</script>
